@@ -1,96 +1,162 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Middleware
+/* =========================
+   Middleware
+========================= */
 app.use(express.json());
-app.use(express.static(".")); // phục vụ file frontend
+app.use(express.static(".")); // phục vụ frontend
 
-// Hàm đọc file JSON an toàn
+/* =========================
+   Helper: Đọc file JSON an toàn
+========================= */
 function readDictFile(filename) {
   const filePath = path.join(__dirname, filename);
-  if (fs.existsSync(filePath)) {
+
+  console.log("------");
+  console.log("Đang đọc file:", filePath);
+
+  try {
+    if (!fs.existsSync(filePath)) {
+      console.log("File không tồn tại → tạo mới");
+      fs.writeFileSync(filePath, "{}", "utf8");
+      return {};
+    }
+
     const content = fs.readFileSync(filePath, "utf8");
+
+    console.log("Nội dung thật sự trong file:");
+    console.log(">>>" + content + "<<<");
+
+    if (!content || !content.trim()) {
+      console.log("File rỗng → reset lại {}");
+      fs.writeFileSync(filePath, "{}", "utf8");
+      return {};
+    }
+
     return JSON.parse(content);
+
+  } catch (error) {
+    console.error("💥 LỖI PARSE JSON:", error.message);
+    return {};
   }
-  return {};
 }
 
-// Hàm ghi file JSON an toàn
+/* =========================
+   Helper: Ghi file JSON an toàn
+========================= */
 function writeDictFile(filename, data) {
   const filePath = path.join(__dirname, filename);
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+
+  try {
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify(data, null, 2),
+      "utf8"
+    );
+    return true;
+  } catch (error) {
+    console.error("Lỗi ghi file:", filename);
+    console.error(error.message);
+    return false;
+  }
 }
 
-// API lấy từ điển dự án
+/* =========================
+   API GET
+========================= */
 app.get("/dict/project", (req, res) => {
-  const dict = readDictFile("dict_project.json");
-  res.json(dict);
+  res.json(readDictFile("dict_project.json"));
 });
 
-// API lấy từ điển chung
 app.get("/dict/general", (req, res) => {
-  const dict = readDictFile("dict_general.json");
-  res.json(dict);
+  res.json(readDictFile("dict_general.json"));
 });
 
-// API lấy từ điển tổng hợp
 app.get("/dict/total", (req, res) => {
-  const dict = readDictFile("dict_total.json");
-  res.json(dict);
+  res.json(readDictFile("dict_total.json"));
 });
 
-// API thêm từ mới vào từ điển tổng hợp
+/* =========================
+   API POST - Thêm từ tổng hợp
+========================= */
 app.post("/dict", (req, res) => {
   const { chinese, vietnamese } = req.body;
 
-  // Validation
+  // Kiểm tra dữ liệu đầu vào
   if (!chinese || !vietnamese) {
-    return res.status(400).json({ error: "Thiếu dữ liệu: cần có chinese và vietnamese" });
+    return res.status(400).json({
+      error: "Thiếu dữ liệu: cần chinese và vietnamese"
+    });
   }
 
   if (typeof chinese !== "string" || typeof vietnamese !== "string") {
-    return res.status(400).json({ error: "Dữ liệu không hợp lệ: chinese và vietnamese phải là chuỗi" });
+    return res.status(400).json({
+      error: "Dữ liệu phải là chuỗi"
+    });
   }
 
-  // Đọc và cập nhật từ điển tổng hợp
+  const chineseTrimmed = chinese.trim();
+  const vietnameseTrimmed = vietnamese.trim();
+
+  // Validate độ dài chuỗi
+  if (chineseTrimmed.length > 100 || vietnameseTrimmed.length > 200) {
+    return res.status(400).json({
+      error: "Chuỗi quá dài: Tiếng Trung tối đa 100 ký tự, Tiếng Việt tối đa 200 ký tự"
+    });
+  }
+
+  if (chineseTrimmed.length === 0 || vietnameseTrimmed.length === 0) {
+    return res.status(400).json({
+      error: "Không được để trống"
+    });
+  }
+
+  // Đọc từ điển hiện tại
   const totalDict = readDictFile("dict_total.json");
-  totalDict[chinese] = vietnamese;
-  writeDictFile("dict_total.json", totalDict);
 
-  res.json({ message: "Đã thêm từ mới!", chinese, vietnamese });
-});
-
-// API cập nhật từ điển dự án
-app.post("/dict/project", (req, res) => {
-  const { chinese, vietnamese } = req.body;
-
-  if (!chinese || !vietnamese) {
-    return res.status(400).json({ error: "Thiếu dữ liệu" });
+  // Kiểm tra từ trùng
+  if (totalDict[chineseTrimmed]) {
+    return res.status(409).json({
+      error: "Từ này đã tồn tại!",
+      existingValue: totalDict[chineseTrimmed],
+      chinese: chineseTrimmed,
+      vietnamese: vietnameseTrimmed
+    });
   }
 
-  const projectDict = readDictFile("dict_project.json");
-  projectDict[chinese] = vietnamese;
-  writeDictFile("dict_project.json", projectDict);
+  // Thêm từ mới
+  totalDict[chineseTrimmed] = vietnameseTrimmed;
+  const writeSuccess = writeDictFile("dict_total.json", totalDict);
 
-  res.json({ message: "Đã thêm từ vào từ điển dự án!" });
-});
-
-// API cập nhật từ điển chung
-app.post("/dict/general", (req, res) => {
-  const { chinese, vietnamese } = req.body;
-
-  if (!chinese || !vietnamese) {
-    return res.status(400).json({ error: "Thiếu dữ liệu" });
+  if (!writeSuccess) {
+    return res.status(500).json({
+      error: "Lỗi ghi file từ điển. Vui lòng thử lại!"
+    });
   }
 
-  const generalDict = readDictFile("dict_general.json");
-  generalDict[chinese] = vietnamese;
-  writeDictFile("dict_general.json", generalDict);
-
-  res.json({ message: "Đã thêm từ vào từ điển chung!" });
+  res.status(201).json({
+    message: "Đã thêm từ mới!",
+    chinese: chineseTrimmed,
+    vietnamese: vietnameseTrimmed
+  });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server chạy tại http://localhost:${PORT}`));
+/* =========================
+   Error Handler toàn cục
+========================= */
+app.use((err, req, res, next) => {
+  console.error("Server error:", err.stack);
+  res.status(500).json({ error: "Internal Server Error" });
+});
+
+/* =========================
+   Start Server
+========================= */
+app.listen(PORT, () => {
+  console.log(`Server chạy tại http://localhost:${PORT}`);
+});

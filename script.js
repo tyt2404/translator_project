@@ -2,166 +2,170 @@ let projectDict = {};
 let generalDict = {};
 let totalDict = {};
 
-// Load từng loại từ điển
-Promise.all([
-  fetch("/dict/project").then(res => res.json()),
-  fetch("/dict/general").then(res => res.json()),
-  fetch("/dict/total").then(res => res.json())
-])
-.then(([projectData, generalData, totalData]) => {
-  projectDict = projectData;
-  generalDict = generalData;
-  totalDict = totalData;
-  updateStats();
-})
-.catch(err => {
-  console.error("Lỗi load từ điển:", err);
-  document.getElementById("status").textContent = "Lỗi load từ điển!";
-});
+/* =========================
+   Safe Fetch
+========================= */
+async function safeFetch(url) {
+  try {
+    const response = await fetch(url);
 
-// Hàm dịch (tra trong tổng hợp)
-document.getElementById("translateBtn").addEventListener("click", () => {
-  const chineseText = document.getElementById("chineseText").value.trim();
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("Server error:", url, text);
+      return {};
+    }
+
+    return await response.json();
+
+  } catch (error) {
+    console.error("Fetch lỗi:", url, error);
+    return {};
+  }
+}
+
+/* =========================
+   Load Dictionaries
+========================= */
+async function loadDictionaries() {
+  projectDict = await safeFetch("/dict/project");
+  generalDict = await safeFetch("/dict/general");
+  const additionalDict = await safeFetch("/dict/total");
+
+  // Gộp tất cả 3 từ điển lại
+  totalDict = { ...projectDict, ...generalDict, ...additionalDict };
+
+  updateStats();
+}
+
+loadDictionaries();
+
+/* =========================
+   Translate
+========================= */
+document.getElementById("translateBtn")?.addEventListener("click", () => {
+  const chineseText = document
+    .getElementById("chineseText")
+    .value
+    .trim();
+
+  const statusEl = document.getElementById("status");
 
   if (!chineseText) {
     alert("Vui lòng nhập văn bản Tiếng Trung");
     return;
   }
 
-  if (totalDict[chineseText]) {
-    document.getElementById("vietnameseText").value = totalDict[chineseText];
-    document.getElementById("status").textContent = "Đã dịch xong!";
-  } else {
-    document.getElementById("vietnameseText").value = "Chưa có nghĩa trong từ điển";
-    document.getElementById("status").textContent = "Không tìm thấy!";
-  }
+  // Hiển thị trạng thái đang xử lý
+  statusEl.textContent = "Đang tìm kiếm...";
+
+  // Simulate async lookup (có thể thêm debounce/delay nếu cần)
+  setTimeout(() => {
+    if (totalDict[chineseText]) {
+      document.getElementById("vietnameseText").value =
+        totalDict[chineseText];
+      statusEl.textContent = "Đã dịch xong!";
+    } else {
+      document.getElementById("vietnameseText").value =
+        "Chưa có nghĩa trong từ điển";
+      statusEl.textContent = "Không tìm thấy!";
+    }
+  }, 300);
 });
 
-// Hàm cập nhật thống kê
+/* =========================
+   Update Stats
+========================= */
 function updateStats() {
-  document.getElementById("projectCount").textContent = Object.keys(projectDict).length;
-  document.getElementById("generalCount").textContent = Object.keys(generalDict).length;
-  document.getElementById("totalCount").textContent = Object.keys(totalDict).length;
+  document.getElementById("projectCount").textContent =
+    Object.keys(projectDict).length;
+
+  document.getElementById("generalCount").textContent =
+    Object.keys(generalDict).length;
+
+  document.getElementById("totalCount").textContent =
+    Object.keys(totalDict).length;
 }
 
-// Hàm thêm từ mới
+/* =========================
+   Add Word
+========================= */
 async function addWord(chinese, vietnamese) {
-  try {
-    const response = await fetch("/dict", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ chinese, vietnamese })
-    });
+  const response = await fetch("/dict", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ chinese, vietnamese })
+  });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || "Lỗi không xác định");
-    }
+  const result = await response.json();
 
-    const result = await response.json();
-    
-    // Cập nhật local dictionary
-    totalDict[chinese] = vietnamese;
-    updateStats();
-    
-    return result;
-  } catch (err) {
-    console.error("Lỗi khi thêm từ:", err);
-    throw err;
+  if (!response.ok) {
+    // Tạo error message chi tiết từ response
+    const errorMsg = result.error || "Lỗi không xác định";
+    throw new Error(errorMsg);
   }
+
+  // Cập nhật totalDict cuc bộ
+  totalDict[result.chinese] = result.vietnamese;
+  updateStats();
+
+  return result;
 }
 
-// Event Listener: Nút "Thêm từ"
 document.getElementById("addWordBtn")?.addEventListener("click", async () => {
-  const chineseWord = document.getElementById("chineseWord").value.trim();
-  const vietnameseWord = document.getElementById("vietnameseWord").value.trim();
+  const chineseWord =
+    document.getElementById("chineseWord").value.trim();
+
+  const vietnameseWord =
+    document.getElementById("vietnameseWord").value.trim();
+
+  const addBtn = document.getElementById("addWordBtn");
 
   if (!chineseWord || !vietnameseWord) {
-    alert("Vui lòng nhập đầy đủ từ Tiếng Trung và Tiếng Việt");
+    alert("Vui lòng nhập đầy đủ");
+    return;
+  }
+
+  // Kiểm tra độ dài
+  if (chineseWord.length > 100) {
+    alert("Tiếng Trung tối đa 100 ký tự");
+    return;
+  }
+
+  if (vietnameseWord.length > 200) {
+    alert("Tiếng Việt tối đa 200 ký tự");
     return;
   }
 
   try {
+    // Hiển thị loading state
+    const originalText = addBtn.textContent;
+    addBtn.textContent = "Đang thêm...";
+    addBtn.disabled = true;
+
     await addWord(chineseWord, vietnameseWord);
-    alert("Đã thêm từ thành công!");
-    
-    // Clear inputs
+    alert("Đã thêm thành công!");
+
     document.getElementById("chineseWord").value = "";
     document.getElementById("vietnameseWord").value = "";
+
+  } catch (err) {
+    const errorMsg = err.message;
     
-    document.getElementById("status").textContent = "Đã thêm từ mới!";
-  } catch (err) {
-    alert("Lỗi: " + err.message);
-    document.getElementById("status").textContent = "Lỗi thêm từ!";
-  }
-});
-
-// Event Listener: Nút "Dịch từ Clipboard"
-document.getElementById("clipboardBtn")?.addEventListener("click", async () => {
-  try {
-    const clipboardText = await navigator.clipboard.readText();
-    
-    if (!clipboardText) {
-      alert("Clipboard trống!");
-      return;
-    }
-
-    document.getElementById("chineseText").value = clipboardText;
-    document.getElementById("status").textContent = "Đã dán từ clipboard";
-
-    // Tự động dịch sau khi dán
-    const chineseText = clipboardText.trim();
-    if (totalDict[chineseText]) {
-      document.getElementById("vietnameseText").value = totalDict[chineseText];
-      document.getElementById("status").textContent = "Đã dịch xong!";
+    // Xử lý các lỗi đặc biệt
+    if (errorMsg.includes("trùng")) {
+      alert("⚠️ Từ này đã có trong từ điển rồi!");
+    } else if (errorMsg.includes("quá dài")) {
+      alert("⚠️ " + errorMsg);
+    } else if (errorMsg.includes("trống")) {
+      alert("⚠️ " + errorMsg);
     } else {
-      document.getElementById("vietnameseText").value = "Chưa có nghĩa trong từ điển";
-      document.getElementById("status").textContent = "Không tìm thấy!";
+      alert("❌ Lỗi: " + errorMsg);
     }
-  } catch (err) {
-    console.error("Lỗi đọc clipboard:", err);
-    alert("Không thể đọc clipboard. Vui lòng cấp quyền!");
-  }
-});
-
-// Event Listener: Nút "Copy kết quả"
-document.getElementById("copyBtn")?.addEventListener("click", async () => {
-  const vietnameseText = document.getElementById("vietnameseText").value;
-
-  if (!vietnameseText) {
-    alert("Không có gì để copy!");
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(vietnameseText);
-    document.getElementById("status").textContent = "Đã copy vào clipboard!";
-  } catch (err) {
-    console.error("Lỗi copy:", err);
-    alert("Không thể copy. Vui lòng thử lại!");
-  }
-});
-
-// Event Listener: Nút "Quản lý Từ điển"
-document.getElementById("manageDictBtn")?.addEventListener("click", () => {
-  const dictManager = document.querySelector(".dict-manager");
-  if (dictManager) {
-    if (dictManager.style.display === "none") {
-      dictManager.style.display = "block";
-      document.getElementById("status").textContent = "Đã mở quản lý từ điển";
-    } else {
-      dictManager.style.display = "none";
-      document.getElementById("status").textContent = "Đã đóng quản lý từ điển";
-    }
-  }
-});
-
-// Khởi tạo: Ẩn phần quản lý từ điển ban đầu
-document.addEventListener("DOMContentLoaded", () => {
-  const dictManager = document.querySelector(".dict-manager");
-  if (dictManager) {
-    dictManager.style.display = "none";
+  } finally {
+    // Khôi phục trạng thái button
+    addBtn.textContent = originalText;
+    addBtn.disabled = false;
   }
 });
