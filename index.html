@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Con Bot QT Pro Max</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>Con Bot QT Pro Max</h2>
+    <p>Công cụ hỗ trợ dịch thuật Trung-Việt</p>
+
+    <div class="tools">
+      <button id="clipboardBtn">Dịch từ Clipboard</button>
+      <button id="manageDictBtn">Quản lý Từ điển</button>
+      <button id="copyBtn">Copy kết quả</button>
+    </div>
+
+    <div class="project">
+      <h3>Dự án / Truyện hiện tại</h3>
+      <select id="projectSelect">
+        <option>Năm tháng như ca</option>
+        <option>Truyện khác...</option>
+      </select>
+    </div>
+
+    <div class="stats">
+      <h3>Thống kê Từ điển</h3>
+      <p>📘 Từ điển dự án: <span id="projectCount">0</span></p>
+      <p>📗 Từ điển chung: <span id="generalCount">0</span></p>
+      <p>📙 Từ điển tổng hợp: <span id="totalCount">0</span></p>
+    </div>
+
+    <div class="guide">
+      <h3>Hướng dẫn</h3>
+      <ul>
+        <li>Dán văn bản Tiếng Trung</li>
+        <li>Chọn đúng truyện đang dịch</li>
+        <li>Click Dịch từ Clipboard</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main">
+    <h2>Văn bản Tiếng Trung</h2>
+    <textarea id="chineseText"></textarea>
+
+    <h2>Bản dịch Tiếng Việt</h2>
+    <textarea id="vietnameseText"></textarea>
+
+    <button id="translateBtn">Dịch ngay</button>
+    <p id="status">Sẵn sàng</p>
+
+    <div class="dict-manager">
+      <h2>Quản lý Từ điển</h2>
+      <input id="chineseWord" placeholder="Tiếng Trung">
+      <input id="vietnameseWord" placeholder="Tiếng Việt">
+      <button id="addWordBtn">Thêm từ</button>
+    </div>
+  </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
