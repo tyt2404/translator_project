@@ -1,6 +1,7 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const { dichVanBan } = require("./engine/dichChinh");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,31 +10,39 @@ const PORT = process.env.PORT || 3000;
    Middleware
 ========================= */
 app.use(express.json());
-app.use(express.static(".")); // phục vụ frontend
+app.use(express.static(path.join(__dirname)));
 
 /* =========================
-   Helper: Đọc file JSON an toàn
+   File Paths
+========================= */
+const PROJECT_DICT = "dict_project.json";
+const GENERAL_DICT = "dict_general.json";
+const TOTAL_DICT = "dict_total.json";
+const COMPOUND_DICT = "dict_compound.json";
+
+/* =========================
+   CACHE RAM
+========================= */
+let projectDict = {};
+let generalDict = {};
+let totalDict = {};
+let compoundDict = {};
+let mergedDict = {};
+
+/* =========================
+   Helper: Read JSON safely
 ========================= */
 function readDictFile(filename) {
   const filePath = path.join(__dirname, filename);
 
-  console.log("------");
-  console.log("Đang đọc file:", filePath);
-
   try {
     if (!fs.existsSync(filePath)) {
-      console.log("File không tồn tại → tạo mới");
       fs.writeFileSync(filePath, "{}", "utf8");
       return {};
     }
 
     const content = fs.readFileSync(filePath, "utf8");
-
-    console.log("Nội dung thật sự trong file:");
-    console.log(">>>" + content + "<<<");
-
     if (!content || !content.trim()) {
-      console.log("File rỗng → reset lại {}");
       fs.writeFileSync(filePath, "{}", "utf8");
       return {};
     }
@@ -41,103 +50,94 @@ function readDictFile(filename) {
     return JSON.parse(content);
 
   } catch (error) {
-    console.error("💥 LỖI PARSE JSON:", error.message);
+    console.error("💥 Lỗi đọc JSON:", filename, error.message);
     return {};
   }
 }
 
 /* =========================
-   Helper: Ghi file JSON an toàn
+   Helper: Write JSON safely
 ========================= */
 function writeDictFile(filename, data) {
   const filePath = path.join(__dirname, filename);
 
   try {
-    fs.writeFileSync(
-      filePath,
-      JSON.stringify(data, null, 2),
-      "utf8"
-    );
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
     return true;
   } catch (error) {
-    console.error("Lỗi ghi file:", filename);
-    console.error(error.message);
+    console.error("💥 Lỗi ghi file:", filename, error.message);
     return false;
   }
 }
 
 /* =========================
-   API GET
+   Load Dictionaries vào RAM
 ========================= */
-app.get("/dict/project", (req, res) => {
-  res.json(readDictFile("dict_project.json"));
-});
+function loadAllDictionaries() {
+  projectDict = readDictFile(PROJECT_DICT);
+  generalDict = readDictFile(GENERAL_DICT);
+  totalDict = readDictFile(TOTAL_DICT);
+  compoundDict = readDictFile(COMPOUND_DICT);
 
-app.get("/dict/general", (req, res) => {
-  res.json(readDictFile("dict_general.json"));
-});
+  // Ưu tiên: general < project < total < compound
+  mergedDict = {
+    ...generalDict,
+    ...projectDict,
+    ...totalDict,
+    ...compoundDict
+  };
 
-app.get("/dict/total", (req, res) => {
-  res.json(readDictFile("dict_total.json"));
-});
+  console.log("✅ Đã load từ điển vào RAM");
+}
+
+/* Load khi server start */
+loadAllDictionaries();
 
 /* =========================
-   API POST - Thêm từ tổng hợp
+   API GET Dictionaries
+========================= */
+app.get("/dict/project", (req, res) => res.json(projectDict));
+app.get("/dict/general", (req, res) => res.json(generalDict));
+app.get("/dict/total", (req, res) => res.json(totalDict));
+app.get("/dict/compound", (req, res) => res.json(compoundDict));
+
+/* =========================
+   API POST - Add Word
 ========================= */
 app.post("/dict", (req, res) => {
   const { chinese, vietnamese } = req.body;
 
-  // Kiểm tra dữ liệu đầu vào
   if (!chinese || !vietnamese) {
-    return res.status(400).json({
-      error: "Thiếu dữ liệu: cần chinese và vietnamese"
-    });
-  }
-
-  if (typeof chinese !== "string" || typeof vietnamese !== "string") {
-    return res.status(400).json({
-      error: "Dữ liệu phải là chuỗi"
-    });
+    return res.status(400).json({ error: "Thiếu dữ liệu" });
   }
 
   const chineseTrimmed = chinese.trim();
   const vietnameseTrimmed = vietnamese.trim();
 
-  // Validate độ dài chuỗi
+  if (!chineseTrimmed || !vietnameseTrimmed) {
+    return res.status(400).json({ error: "Không được để trống" });
+  }
+
   if (chineseTrimmed.length > 100 || vietnameseTrimmed.length > 200) {
-    return res.status(400).json({
-      error: "Chuỗi quá dài: Tiếng Trung tối đa 100 ký tự, Tiếng Việt tối đa 200 ký tự"
-    });
+    return res.status(400).json({ error: "Chuỗi quá dài" });
   }
 
-  if (chineseTrimmed.length === 0 || vietnameseTrimmed.length === 0) {
-    return res.status(400).json({
-      error: "Không được để trống"
-    });
-  }
-
-  // Đọc từ điển hiện tại
-  const totalDict = readDictFile("dict_total.json");
-
-  // Kiểm tra từ trùng
   if (totalDict[chineseTrimmed]) {
     return res.status(409).json({
       error: "Từ này đã tồn tại!",
-      existingValue: totalDict[chineseTrimmed],
-      chinese: chineseTrimmed,
-      vietnamese: vietnameseTrimmed
+      existingValue: totalDict[chineseTrimmed]
     });
   }
 
-  // Thêm từ mới
   totalDict[chineseTrimmed] = vietnameseTrimmed;
-  const writeSuccess = writeDictFile("dict_total.json", totalDict);
 
-  if (!writeSuccess) {
-    return res.status(500).json({
-      error: "Lỗi ghi file từ điển. Vui lòng thử lại!"
-    });
+  const success = writeDictFile(TOTAL_DICT, totalDict);
+  if (!success) {
+    return res.status(500).json({ error: "Lỗi ghi file" });
   }
+
+  /* Reload lại RAM */
+  loadAllDictionaries();
 
   res.status(201).json({
     message: "Đã thêm từ mới!",
@@ -147,10 +147,35 @@ app.post("/dict", (req, res) => {
 });
 
 /* =========================
-   Error Handler toàn cục
+   API TRANSLATE
+========================= */
+app.post("/translate", (req, res) => {
+  const { text, profile } = req.body;
+
+  if (!text) {
+    return res.status(400).json({ error: "Thiếu text" });
+  }
+
+  try {
+    const ketQua = dichVanBan(
+      text,
+      mergedDict,
+      profile || "mac_dinh"
+    );
+
+    res.json({ result: ketQua });
+
+  } catch (error) {
+    console.error("💥 Lỗi dịch:", error.message);
+    res.status(500).json({ error: "Lỗi xử lý dịch" });
+  }
+});
+
+/* =========================
+   Global Error Handler
 ========================= */
 app.use((err, req, res, next) => {
-  console.error("Server error:", err.stack);
+  console.error("💥 Server error:", err.stack);
   res.status(500).json({ error: "Internal Server Error" });
 });
 
@@ -158,5 +183,5 @@ app.use((err, req, res, next) => {
    Start Server
 ========================= */
 app.listen(PORT, () => {
-  console.log(`Server chạy tại http://localhost:${PORT}`);
+  console.log(`🚀 Server chạy tại http://localhost:${PORT}`);
 });

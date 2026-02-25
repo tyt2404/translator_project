@@ -2,68 +2,140 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Con Bot QT Pro Max</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="app">
-  <!-- Sidebar -->
-  <div class="sidebar">
-    <h2>Con Bot QT Pro Max</h2>
-    <p>Công cụ hỗ trợ dịch thuật Trung-Việt</p>
 
-    <div class="tools">
-      <button id="clipboardBtn">📋 Dịch từ Clipboard</button>
-      <button id="manageDictBtn">📖 Quản lý Từ điển</button>
-      <button id="copyBtn">📤 Copy kết quả</button>
+<div class="app">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+
+    <div class="logo">
+      <h2>🤖 Con Bot QT Pro Max</h2>
+      <p>Công cụ dịch Trung → Việt chuyên truyện dài</p>
     </div>
 
-    <div class="project">
-      <h3>Dự án / Truyện hiện tại</h3>
+    <!-- Nút công cụ -->
+    <div class="tools">
+      <button id="translateBtn">🚀 Dịch ngay</button>
+      <button id="copyBtn">📋 Copy kết quả</button>
+    </div>
+
+    <!-- Chọn dự án -->
+    <div class="block">
+      <h3>📚 Dự án</h3>
       <select id="projectSelect">
-        <option>Năm tháng như ca</option>
-        <option>Truyện khác...</option>
+        <option value="default">Năm tháng như ca</option>
+        <option value="other">Truyện khác...</option>
       </select>
     </div>
 
-    <div class="stats">
-      <h3>📊 Thống kê Từ điển</h3>
-      <ul>
-        <li>📘 Từ điển dự án: <span id="projectCount">0</span></li>
-        <li>📗 Từ điển chung: <span id="generalCount">0</span></li>
-        <li>📙 Từ điển tổng hợp: <span id="totalCount">0</span></li>
+    <!-- Chọn Profile -->
+    <div class="block">
+      <h3>🎭 Phong cách dịch</h3>
+      <select id="profileSelect">
+        <option value="mac_dinh">Mặc định</option>
+        <option value="tien_hiep">Tiên hiệp</option>
+      </select>
+    </div>
+
+    <!-- Thống kê -->
+    <div class="block">
+      <h3>📊 Thống kê từ điển</h3>
+      <ul class="stats">
+        <li>📘 Dự án: <span id="projectCount">0</span></li>
+        <li>📗 Chung: <span id="generalCount">0</span></li>
+        <li>📙 Tổng hợp: <span id="totalCount">0</span></li>
+        <li>📕 Cụm ghép: <span id="compoundCount">0</span></li>
       </ul>
     </div>
 
-    <div class="guide">
+    <!-- Hướng dẫn -->
+    <div class="block">
       <h3>📝 Hướng dẫn</h3>
-      <ul>
-        <li>Dán văn bản Tiếng Trung</li>
-        <li>Chọn đúng truyện đang dịch</li>
-        <li>Click Dịch từ Clipboard</li>
+      <ul class="guide">
+        <li>Dán văn bản tiếng Trung vào khung bên phải</li>
+        <li>Chọn phong cách dịch</li>
+        <li>Nhấn "Dịch ngay"</li>
+        <li>Hoặc nhấn <b>Ctrl + Enter</b></li>
       </ul>
     </div>
-  </div>
 
-  <!-- Main content -->
-  <div class="main">
-    <h2>Văn bản Tiếng Trung</h2>
-    <textarea id="chineseText" placeholder="Nhập văn bản tiếng Trung..."></textarea>
+  </aside>
 
-    <h2>Bản dịch Tiếng Việt</h2>
-    <textarea id="vietnameseText" placeholder="Kết quả dịch sẽ hiển thị ở đây..."></textarea>
+  <!-- ================= MAIN ================= -->
+  <main class="main">
 
-    <button id="translateBtn">🚀 Dịch ngay</button>
-    <p id="status">Sẵn sàng</p>
+    <!-- 2 CỘT TEXT -->
+    <div class="text-columns">
 
-    <div class="dict-manager">
-      <h2>Quản lý Từ điển</h2>
-      <input id="chineseWord" placeholder="Nhập từ Tiếng Trung">
-      <input id="vietnameseWord" placeholder="Nhập nghĩa Tiếng Việt">
-      <button id="addWordBtn">➕ Thêm từ</button>
+      <!-- Cột Trung -->
+      <div class="column">
+        <div class="column-header">
+          <h2>🀄 Văn bản Tiếng Trung</h2>
+        </div>
+        <textarea 
+          id="chineseText" 
+          placeholder="Nhập hoặc dán văn bản tiếng Trung..."
+        ></textarea>
+      </div>
+
+      <!-- Cột Việt -->
+      <div class="column">
+        <div class="column-header">
+          <h2>🇻🇳 Bản dịch Tiếng Việt</h2>
+        </div>
+
+        <!-- OUTPUT DIV để hỗ trợ highlight -->
+        <div id="vietnameseText" class="output-box">
+          Kết quả dịch sẽ hiển thị ở đây...
+        </div>
+      </div>
+
     </div>
-  </div>
+
+    <!-- STATUS -->
+    <div class="status-container">
+      <span id="status">🟢 Sẵn sàng</span>
+
+      <!-- PROGRESS BAR -->
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+    </div>
+
+    <!-- ================= QUẢN LÝ TỪ ĐIỂN ================= -->
+    <section class="dict-manager">
+
+      <h2>📖 Thêm từ mới</h2>
+
+      <div class="dict-inputs">
+        <input 
+          id="chineseWord" 
+          type="text" 
+          placeholder="Nhập từ Tiếng Trung"
+        >
+        <input 
+          id="vietnameseWord" 
+          type="text" 
+          placeholder="Nhập nghĩa Tiếng Việt"
+        >
+        <button id="addWordBtn">➕ Thêm</button>
+      </div>
+
+      <p class="dict-note">
+        ⚠ Từ mới sẽ được lưu vào từ điển tổng hợp.
+      </p>
+
+    </section>
+
+  </main>
+
 </div>
+
 <script src="script.js"></script>
 </body>
 </html>

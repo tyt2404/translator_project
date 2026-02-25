@@ -1,8 +1,13 @@
-body {
+* {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #1e1e2f;
-  color: #fff;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  background: #0f172a;
+  color: #f1f5f9;
 }
 
 .app {
@@ -10,103 +15,161 @@ body {
   height: 100vh;
 }
 
-/* Sidebar */
+/* ================= SIDEBAR ================= */
 .sidebar {
   width: 300px;
-  background: #2f2f5a;
+  background: #1e293b;
   padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  border-right: 1px solid #334155;
+  overflow-y: auto;
 }
 
 .sidebar h2 {
-  margin: 0;
-  color: #ffccff;
+  margin-bottom: 8px;
+  color: #38bdf8;
 }
 
-.tools button {
-  display: block;
+.subtitle {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 20px;
+}
+
+.sidebar h3 {
+  margin: 20px 0 10px;
+  font-size: 15px;
+  color: #facc15;
+}
+
+.sidebar ul {
+  list-style: none;
+  font-size: 14px;
+  color: #cbd5e1;
+}
+
+.sidebar li {
+  margin-bottom: 6px;
+}
+
+.sidebar select,
+.sidebar button,
+.dict-manager input,
+.dict-manager button {
   width: 100%;
-  margin: 5px 0;
-  padding: 10px;
+  padding: 8px;
+  margin-top: 8px;
+  border-radius: 6px;
   border: none;
-  border-radius: 5px;
-  background: #6a5acd;
+}
+
+.sidebar button {
+  background: #2563eb;
   color: white;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: 0.2s;
 }
 
-.tools button:hover {
-  background: #7b68ee;
+.sidebar button:hover {
+  background: #1d4ed8;
 }
 
-.stats ul {
-  list-style: none;
-  padding: 0;
-}
-
-.stats li {
-  margin: 5px 0;
-}
-
-/* Main content */
+/* ================= MAIN ================= */
 .main {
   flex: 1;
   padding: 20px;
-  background: #121212;
+  display: flex;
+  flex-direction: column;
+}
+
+.text-columns {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+}
+
+.column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 textarea {
-  width: 100%;
-  height: 150px;
-  margin-bottom: 10px;
-  border-radius: 5px;
-  padding: 10px;
-  border: 1px solid #444;
-  background: #222;
-  color: #fff;
+  flex: 1;
+  resize: none;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 15px;
 }
 
-button#translateBtn {
-  background: #ff69b4;
-  color: #fff;
-  font-weight: bold;
+textarea:focus {
+  outline: none;
+  border-color: #38bdf8;
 }
 
-button#translateBtn:hover {
-  background: #ff85c1;
+.status {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #94a3b8;
 }
 
+/* ================= DICT ================= */
 .dict-manager {
   margin-top: 20px;
-  background: #333;
-  padding: 15px;
-  border-radius: 5px;
 }
 
-.dict-manager input {
-  width: calc(50% - 10px);
-  margin: 5px;
-  padding: 8px;
-  border-radius: 5px;
-  border: 1px solid #555;
-  background: #222;
-  color: #fff;
+.dict-inputs {
+  display: flex;
+  gap: 10px;
 }
 
-.dict-manager button {
-  width: 100%;
-  margin-top: 10px;
-  padding: 10px;
-  background: #32cd32;
-  color: #fff;
-  border: none;
-  border-radius: 5px;
+.dict-inputs input {
+  flex: 1;
+  background: #1e293b;
+  color: white;
+  border: 1px solid #334155;
+}
+
+.dict-inputs button {
+  background: #16a34a;
+  color: white;
   cursor: pointer;
 }
 
-.dict-manager button:hover {
-  background: #3ee93e;
+.dict-inputs button:hover {
+  background: #15803d;
+}
+
+/* ================= HIGHLIGHT ================= */
+.highlight-unknown {
+  background: #7f1d1d;
+  color: #fff;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.highlight-ba {
+  background: #facc15;
+  color: black;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+/* ================= PROGRESS ================= */
+.progress-bar-container {
+  width: 100%;
+  height: 6px;
+  background: #1e293b;
+  margin-top: 10px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: #38bdf8;
+  transition: width 0.3s ease;
 }
