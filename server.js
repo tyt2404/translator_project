@@ -163,11 +163,16 @@ app.post("/translate", (req, res) => {
       profile || "mac_dinh"
     );
 
-    res.json({ result: ketQua });
+    /* Thay \n bằng <br> để xuống dòng trong HTML */
+    const ketQuaHtml = ketQua.replace(/\n/g, "<br>");
+
+    res.json({ result: ketQuaHtml });
 
   } catch (error) {
-    console.error("💥 Lỗi dịch:", error.message);
-    res.status(500).json({ error: "Lỗi xử lý dịch" });
+  console.error("💥 Lỗi dịch FULL:", error);
+  res.status(500).json({ 
+    error: error.message || "Lỗi xử lý dịch"
+  });
   }
 });
 

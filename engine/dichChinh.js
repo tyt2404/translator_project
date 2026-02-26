@@ -2,7 +2,7 @@ const { chuanHoaVanBan } = require("./chuanHoa");
 const { ghepCumTrie } = require("./ghepCumTrie");
 const { xuLyCauDacBiet } = require("./xuLyCauDacBiet");
 const { xuLySo } = require("./xuLySo");
-const { lamMuot } = require("./lamMuot");
+const { lamMuotCau } = require("./lamMuot");
 const { apDungProfile } = require("./profile/quanLyProfile");
 
 /* ===================================================
@@ -28,14 +28,13 @@ function highlightCauDacBiet(text) {
 }
 
 /* ===================================================
-   ENGINE CHÍNH
+   DỊCH MỘT DÒNG ĐƠN
 =================================================== */
-function dichVanBan(vanBan, tuDien, tenProfile = "mac_dinh") {
-
-  if (!vanBan || typeof vanBan !== "string") return "";
+function dichMotDong(donDong, tuDien, tenProfile = "mac_dinh") {
+  if (!donDong || typeof donDong !== "string") return "";
 
   /* 1️⃣ Chuẩn hóa */
-  let text = chuanHoaVanBan(vanBan);
+  let text = chuanHoaVanBan(donDong);
 
   /* 2️⃣ Xử lý số (năm, tiền, thời gian...) */
   text = xuLySo(text);
@@ -60,12 +59,31 @@ function dichVanBan(vanBan, tuDien, tenProfile = "mac_dinh") {
   let ketQua = tokens.join(" ");
 
   /* 8️⃣ Làm mượt văn phong */
-  ketQua = lamMuot(ketQua);
+  ketQua = lamMuotCau(ketQua);
 
   /* 9️⃣ Highlight 被 / 把 nếu còn tồn tại */
   ketQua = highlightCauDacBiet(ketQua);
 
   return ketQua;
+}
+
+/* ===================================================
+   ENGINE CHÍNH (hỗ trợ xuống dòng)
+=================================================== */
+function dichVanBan(vanBan, tuDien, tenProfile = "mac_dinh") {
+
+  if (!vanBan || typeof vanBan !== "string") return "";
+
+  /* Chia văn bản thành các dòng */
+  const cacDong = vanBan.split(/\n/);
+
+  /* Dịch từng dòng riêng */
+  const cacDongDich = cacDong.map(dong => {
+    return dichMotDong(dong.trim(), tuDien, tenProfile);
+  });
+
+  /* Join lại với xuống dòng */
+  return cacDongDich.join("\n");
 }
 
 module.exports = { dichVanBan };

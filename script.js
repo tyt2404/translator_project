@@ -137,7 +137,16 @@ document.getElementById("copyBtn")
 
     if (!outputEl) return;
 
-    const textToCopy = outputEl.innerText;
+    /* Lấy text từ innerText (tự động xử lý <br> → newline) */
+    let textToCopy = outputEl.innerText;
+
+    /* Nếu innerText không xử lý được, thay <br> bằng newline */
+    if (!textToCopy.includes("\n") && outputEl.innerHTML.includes("<br>")) {
+      textToCopy = outputEl.innerHTML
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<[^>]*>/g, "")
+        .trim();
+    }
 
     navigator.clipboard.writeText(textToCopy)
       .then(() => alert("✅ Đã copy!"))
