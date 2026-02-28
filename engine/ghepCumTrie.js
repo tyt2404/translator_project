@@ -10,9 +10,12 @@ function taoTrieTuDien(tuDien) {
   return trie;
 }
 
-function ghepCumTrie(text, tuDien) {
+function ghepCumTrie(text, tuDienOrTrie) {
 
-  const trie = taoTrieTuDien(tuDien);
+  const trie = (tuDienOrTrie && typeof tuDienOrTrie.searchLongest === 'function')
+    ? tuDienOrTrie
+    : taoTrieTuDien(tuDienOrTrie || {});
+
   const tokens = [];
   let i = 0;
 
@@ -46,5 +49,5 @@ function ghepCumTrie(text, tuDien) {
   return tokens.filter(t => t && t.length > 0);
 }
 
-module.exports = { ghepCumTrie };
+module.exports = { ghepCumTrie, taoTrieTuDien };
 

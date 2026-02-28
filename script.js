@@ -67,6 +67,15 @@ function updateStats() {
   setCount("generalCount", generalDict);
   setCount("totalCount", totalDict);
   setCount("compoundCount", compoundDict);
+
+  // update cache count as well
+  fetch('/cache/size')
+    .then(r => r.json())
+    .then(j => {
+      const el = document.getElementById('cacheCount');
+      if (el) el.textContent = j.count;
+    })
+    .catch(()=>{});
 }
 
 /* ===================================================
@@ -154,60 +163,54 @@ document.getElementById("copyBtn")
   });
 
 /* ===================================================
+   CLICK ĐỂ TỰ HỌC TỪ CHƯA BIẾT
+=================================================== */
+
+document.getElementById("vietnameseText")
+  ?.addEventListener("click", async (e) => {
+    const target = e.target;
+    if (target.classList.contains("highlight-unknown")) {
+      const chi = target.textContent;
+      const vn = prompt(`Nhập nghĩa tiếng Việt cho "${chi}":`);
+      if (!vn) return;
+
+      const outputEl = document.getElementById("vietnameseText");
+      const result = await addWord(chi, vn);
+      if (result.error) {
+        alert("❌ " + result.error);
+      } else {
+        alert("✅ Đã thêm từ! Đổi hiển thị...");
+        // thay tất cả span tương ứng bằng nghĩa
+        const regex = new RegExp(`<span class="highlight-unknown">${chi}</span>`, "g");
+        outputEl.innerHTML = outputEl.innerHTML.replace(regex, vn);
+        await loadDictionaries();
+      }
+    }
+  });
+
+/* ===================================================
    NÚT DỊCH
 =================================================== */
 
 document.getElementById("translateBtn")
   ?.addEventListener("click", dichVanBan);
 
-/* ===================================================
-   THÊM TỪ MỚI
-=================================================== */
+/* (Removed "Add word" UI handlers per request) */
 
-async function addWord(chinese, vietnamese) {
-  return await safeFetch("/dict", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chinese, vietnamese })
+// clear cache
+const clearCacheBtn = document.getElementById('clearCacheBtn');
+if (clearCacheBtn) {
+  clearCacheBtn.addEventListener('click', async () => {
+    if (!confirm('Xóa toàn bộ cache dịch?')) return;
+    const res = await safeFetch('/cache/clear', { method: 'POST' });
+    if (!res.error) {
+      alert('✅ Đã xóa cache');
+      updateStats();
+    } else {
+      alert('❌ ' + res.error);
+    }
   });
 }
-
-document.getElementById("addWordBtn")
-  ?.addEventListener("click", async () => {
-
-    const chineseWord =
-      document.getElementById("chineseWord")?.value.trim();
-
-    const vietnameseWord =
-      document.getElementById("vietnameseWord")?.value.trim();
-
-    const addBtn = document.getElementById("addWordBtn");
-
-    if (!chineseWord || !vietnameseWord) {
-      alert("Vui lòng nhập đầy đủ");
-      return;
-    }
-
-    const originalText = addBtn.textContent;
-    addBtn.textContent = "Đang thêm...";
-    addBtn.disabled = true;
-
-    const result = await addWord(chineseWord, vietnameseWord);
-
-    if (result.error) {
-      alert("❌ " + result.error);
-    } else {
-      alert("✅ Đã thêm thành công!");
-
-      document.getElementById("chineseWord").value = "";
-      document.getElementById("vietnameseWord").value = "";
-
-      await loadDictionaries();
-    }
-
-    addBtn.textContent = originalText;
-    addBtn.disabled = false;
-  });
 
 /* ===================================================
    CTRL + ENTER ĐỂ DỊCH

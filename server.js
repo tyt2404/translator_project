@@ -2,6 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const { dichVanBan } = require("./engine/dichChinh");
+const { taoTrieTuDien } = require("./engine/ghepCumTrie");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,8 +19,7 @@ app.use(express.static(path.join(__dirname)));
 const PROJECT_DICT = "dict_project.json";
 const GENERAL_DICT = "dict_general.json";
 const TOTAL_DICT = "dict_total.json";
-const COMPOUND_DICT = "dict_compound.json";
-
+const COMPOUND_DICT = "dict_compound.json";const CACHE_FILE = "translation_cache.json"; // persistent cache of previous translations
 /* =========================
    CACHE RAM
 ========================= */
@@ -28,6 +28,8 @@ let generalDict = {};
 let totalDict = {};
 let compoundDict = {};
 let mergedDict = {};
+let cachedTrie = null;
+let translationCache = {};
 
 /* =========================
    Helper: Read JSON safely
@@ -70,6 +72,17 @@ function writeDictFile(filename, data) {
   }
 }
 
+async function writeDictFileAsync(filename, data) {
+  const filePath = path.join(__dirname, filename);
+  try {
+    await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), "utf8");
+    return true;
+  } catch (error) {
+    console.error("💥 Lỗi ghi file async:", filename, error.message);
+    return false;
+  }
+}
+
 /* =========================
    Load Dictionaries vào RAM
 ========================= */
@@ -87,11 +100,46 @@ function loadAllDictionaries() {
     ...compoundDict
   };
 
+  // Build cached Trie for faster tokenization
+  try {
+    cachedTrie = taoTrieTuDien(mergedDict);
+  } catch (e) {
+    console.error('💥 Lỗi build trie:', e.message);
+    cachedTrie = null;
+  }
+
   console.log("✅ Đã load từ điển vào RAM");
 }
 
 /* Load khi server start */
 loadAllDictionaries();
+loadCache(); // load translation cache from disk
+
+/* =========================
+   Load/Save cache
+======================== */
+function loadCache() {
+  const filePath = path.join(__dirname, CACHE_FILE);
+  try {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      translationCache = content ? JSON.parse(content) : {};
+    }
+  } catch (e) {
+    console.error('💥 Lỗi đọc cache:', e.message);
+    translationCache = {};
+  }
+}
+
+async function saveCacheAsync() {
+  const filePath = path.join(__dirname, CACHE_FILE);
+  try {
+    await fs.promises.writeFile(filePath, JSON.stringify(translationCache, null, 2), 'utf8');
+  } catch (e) {
+    console.error('💥 Lỗi ghi cache:', e.message);
+  }
+}
+
 
 /* =========================
    API GET Dictionaries
@@ -100,11 +148,23 @@ app.get("/dict/project", (req, res) => res.json(projectDict));
 app.get("/dict/general", (req, res) => res.json(generalDict));
 app.get("/dict/total", (req, res) => res.json(totalDict));
 app.get("/dict/compound", (req, res) => res.json(compoundDict));
+/* =========================
+   CACHE MANAGEMENT API
+======================== */
+app.get("/cache/size", (req, res) => {
+  const count = Object.keys(translationCache).length;
+  res.json({ count });
+});
 
+app.post("/cache/clear", async (req, res) => {
+  translationCache = {};
+  await saveCacheAsync();
+  res.json({ message: "Đã xóa cache" });
+});
 /* =========================
    API POST - Add Word
 ========================= */
-app.post("/dict", (req, res) => {
+app.post("/dict", async (req, res) => {
   const { chinese, vietnamese } = req.body;
 
   if (!chinese || !vietnamese) {
@@ -131,7 +191,7 @@ app.post("/dict", (req, res) => {
 
   totalDict[chineseTrimmed] = vietnameseTrimmed;
 
-  const success = writeDictFile(TOTAL_DICT, totalDict);
+  const success = await writeDictFileAsync(TOTAL_DICT, totalDict);
   if (!success) {
     return res.status(500).json({ error: "Lỗi ghi file" });
   }
@@ -150,26 +210,42 @@ app.post("/dict", (req, res) => {
    API TRANSLATE
 ========================= */
 app.post("/translate", (req, res) => {
+  console.log('>> /translate body', req.body);
   const { text, profile } = req.body;
 
   if (!text) {
+    console.log('no text');
     return res.status(400).json({ error: "Thiếu text" });
+  }
+
+  const key = `${profile||'mac_dinh'}||${text}`;
+  if (translationCache[key]) {
+    console.log('cache hit', key);
+    return res.json({ result: translationCache[key] });
   }
 
   try {
     const ketQua = dichVanBan(
       text,
-      mergedDict,
+      cachedTrie || mergedDict,
       profile || "mac_dinh"
     );
 
     /* Thay \n bằng <br> để xuống dòng trong HTML */
     const ketQuaHtml = ketQua.replace(/\n/g, "<br>");
 
+    console.log('<< /translate result', ketQua);
+    translationCache[key] = ketQuaHtml;
+    saveCacheAsync();
     res.json({ result: ketQuaHtml });
 
   } catch (error) {
   console.error("💥 Lỗi dịch FULL:", error);
+  try {
+    fs.appendFileSync(path.join(__dirname, 'error.log'), `[${new Date().toISOString()}] ${error.stack || error}\n\n`, 'utf8');
+  } catch (e) {
+    console.error('Không thể ghi error.log:', e.message);
+  }
   res.status(500).json({ 
     error: error.message || "Lỗi xử lý dịch"
   });
@@ -181,6 +257,11 @@ app.post("/translate", (req, res) => {
 ========================= */
 app.use((err, req, res, next) => {
   console.error("💥 Server error:", err.stack);
+  try {
+    fs.appendFileSync(path.join(__dirname, 'error.log'), `[${new Date().toISOString()}] GLOBAL ERROR: ${err.stack || err}\n\n`, 'utf8');
+  } catch (e) {
+    console.error('Không thể ghi error.log:', e.message);
+  }
   res.status(500).json({ error: "Internal Server Error" });
 });
 
